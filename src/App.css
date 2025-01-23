@@ -36,3 +36,20 @@
     transform: rotate(360deg);
   }
 }
+.document-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.preview-container {
+  position: relative;
+  border: 1px solid #ccc;
+  min-height: 800px;
+}
+
+.signature-pad {
+  border: 1px solid #ccc;
+  padding: 10px;
+}
