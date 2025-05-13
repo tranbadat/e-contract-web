@@ -25,7 +25,7 @@ export default function ActionSelection({ onSelect, onBack, fileName }: ActionSe
             Back
           </Button>
           <div className="flex-1 text-center">
-            <h2 className="text-xl font-semibold text-amber-100">What would you like to do?</h2>
+            <h2 className="text-xl font-semibold text-amber-800">What would you like to do?</h2>
           </div>
           <div className="w-20"></div> {/* Spacer for alignment */}
         </div>

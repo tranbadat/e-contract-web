@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { FilePenLineIcon as Signature, FileText, Calendar, Type, AlertCircle, User } from "lucide-react"
+import { FilePenLineIcon as Signature, FileText, Calendar, Type, AlertCircle, User } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { motion } from "framer-motion"
@@ -32,10 +32,14 @@ export default function SignatureDesigner({
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<"object" | "embed" | "iframe" | "fallback">("object")
+  const initializedRef = useRef(false)
 
-  // Initialize fields from existing fields
+  // Initialize fields from existing fields only once
   useEffect(() => {
-    setFields(existingFields)
+    if (!initializedRef.current) {
+      setFields(existingFields)
+      initializedRef.current = true
+    }
   }, [existingFields])
 
   // Try different PDF viewing methods
@@ -76,69 +80,67 @@ export default function SignatureDesigner({
     return `field-${uuidv4()}`
   }, [])
 
-  // Find the handleAddField function and update it to ensure unique IDs
+  // Handle document click to add a new field
   const handleDocumentClick = useCallback(
     (e: React.MouseEvent) => {
-      if (selectedTool && containerRef.current) {
+      if (selectedTool && containerRef.current && currentSigner) {
         const rect = containerRef.current.getBoundingClientRect()
         const x = e.clientX - rect.left
         const y = e.clientY - rect.top
 
-        // Create the field object here but don't add it to state yet
-        if (currentSigner) {
-          const newField: SignatureField = {
-            id: generateUniqueId(),
-            type: selectedTool,
-            position: { x, y },
-            size: { width: selectedTool === "signature" ? 200 : 150, height: selectedTool === "signature" ? 80 : 40 },
-            page: currentPage,
-            signerId: currentSigner.id,
-          }
-
-          // Update local state
-          setFields((prevFields) => [...prevFields, newField])
-
-          // Notify parent component
-          onAddField(newField)
-          setSelectedTool(null)
+        // Create the field object
+        const newField: SignatureField = {
+          id: generateUniqueId(),
+          type: selectedTool,
+          position: { x, y },
+          size: { width: selectedTool === "signature" ? 200 : 150, height: selectedTool === "signature" ? 80 : 40 },
+          page: currentPage,
+          signerId: currentSigner.id,
         }
+
+        // Update local state
+        setFields((prevFields) => [...prevFields, newField])
+
+        // Notify parent component (in an event handler, not during render)
+        onAddField(newField)
+        setSelectedTool(null)
       }
     },
-    [selectedTool, currentPage, currentSigner, generateUniqueId, onAddField],
+    [selectedTool, currentPage, currentSigner, generateUniqueId, onAddField]
   )
 
   const handleFieldMove = useCallback(
     (id: string, position: { x: number; y: number }) => {
       setFields((prevFields) => {
         const updatedFields = prevFields.map((field) => (field.id === id ? { ...field, position } : field))
-
-        // Find the updated field and pass it to the parent
-        const updatedField = updatedFields.find((field) => field.id === id)
-        if (updatedField) {
-          onAddField(updatedField)
-        }
-
         return updatedFields
       })
+
+      // Find the field and notify parent (separate from the state update)
+      const fieldToUpdate = fields.find((field) => field.id === id)
+      if (fieldToUpdate) {
+        const updatedField = { ...fieldToUpdate, position }
+        onAddField(updatedField)
+      }
     },
-    [onAddField],
+    [fields, onAddField]
   )
 
   const handleFieldResize = useCallback(
     (id: string, size: { width: number; height: number }) => {
       setFields((prevFields) => {
         const updatedFields = prevFields.map((field) => (field.id === id ? { ...field, size } : field))
-
-        // Find the updated field and pass it to the parent
-        const updatedField = updatedFields.find((field) => field.id === id)
-        if (updatedField) {
-          onAddField(updatedField)
-        }
-
         return updatedFields
       })
+
+      // Find the field and notify parent (separate from the state update)
+      const fieldToUpdate = fields.find((field) => field.id === id)
+      if (fieldToUpdate) {
+        const updatedField = { ...fieldToUpdate, size }
+        onAddField(updatedField)
+      }
     },
-    [onAddField],
+    [fields, onAddField]
   )
 
   const handleMouseDown = useCallback(
@@ -184,7 +186,7 @@ export default function SignatureDesigner({
       document.addEventListener("mousemove", handleMouseMove)
       document.addEventListener("mouseup", handleMouseUp)
     },
-    [fields, handleFieldMove, handleFieldResize],
+    [fields, handleFieldMove, handleFieldResize]
   )
 
   const handleOpenPdfInNewTab = () => {
@@ -243,7 +245,7 @@ export default function SignatureDesigner({
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tools panel */}
         <div className="lg:w-64 earth-card">
-          <h3 className="text-lg font-medium text-amber-100 mb-4">Signature Tools</h3>
+          <h3 className="text-lg font-medium text-amber-800 mb-4">Signature Tools</h3>
 
           <div className="space-y-3">
             <Button
@@ -301,16 +303,16 @@ export default function SignatureDesigner({
           )}
 
           <div className="mt-6">
-            <h4 className="text-sm font-medium text-amber-100 mb-2">Current Signer</h4>
+            <h4 className="text-sm font-medium text-amber-800 mb-2">Current Signer</h4>
             {currentSigner && (
               <div className="bg-amber-800/20 p-3 rounded-lg border border-amber-700/30">
                 <div className="flex items-center">
                   <div className="bg-amber-700/30 p-2 rounded-full mr-2">
-                    <User className="h-3 w-3 text-amber-300" />
+                    <User className="h-3 w-3 text-amber-700" />
                   </div>
                   <div>
-                    <p className="text-sm text-amber-100">{currentSigner.name}</p>
-                    <p className="text-xs text-amber-200/70">{currentSigner.email}</p>
+                    <p className="text-sm text-amber-800">{currentSigner.name}</p>
+                    <p className="text-xs text-amber-700">{currentSigner.email}</p>
                   </div>
                 </div>
               </div>
@@ -318,9 +320,9 @@ export default function SignatureDesigner({
           </div>
 
           <div className="mt-6">
-            <h4 className="text-sm font-medium text-amber-100 mb-2">Fields on Page {currentPage}</h4>
+            <h4 className="text-sm font-medium text-amber-800 mb-2">Fields on Page {currentPage}</h4>
             {fields.filter((f) => f.page === currentPage && f.signerId === currentSigner?.id).length === 0 ? (
-              <p className="text-xs text-amber-200/70">No fields added yet</p>
+              <p className="text-xs text-amber-700">No fields added yet</p>
             ) : (
               <div className="space-y-2">
                 {fields
@@ -328,7 +330,7 @@ export default function SignatureDesigner({
                   .map((field) => (
                     <div
                       key={field.id}
-                      className="bg-amber-800/20 p-2 rounded-lg border border-amber-700/30 text-xs text-amber-100"
+                      className="bg-amber-100 p-2 rounded-lg border border-amber-300 text-xs text-amber-800"
                     >
                       {field.type.charAt(0).toUpperCase() + field.type.slice(1)} Field
                     </div>
@@ -341,7 +343,7 @@ export default function SignatureDesigner({
         {/* Document preview */}
         <div className="flex-1 earth-card">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-amber-100">Document Preview</h3>
+            <h3 className="text-lg font-medium text-amber-800">Document Preview</h3>
             <Button
               variant="outline"
               size="sm"
@@ -464,7 +466,7 @@ export default function SignatureDesigner({
             >
               Previous Page
             </Button>
-            <div className="text-amber-100">Page {currentPage}</div>
+            <div className="text-amber-800">Page {currentPage}</div>
             <Button
               variant="outline"
               size="sm"

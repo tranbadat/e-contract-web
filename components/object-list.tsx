@@ -44,11 +44,11 @@ export default function ObjectList({ objects, onObjectDelete, onObjectUpdate, on
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-900/40 to-indigo-900/40 rounded-xl p-4 backdrop-blur-sm border border-blue-500/30 shadow-lg">
-      <h2 className="text-lg font-semibold text-white mb-4">Objects</h2>
+    <div className="bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl p-4 backdrop-blur-sm border border-blue-300 shadow-lg">
+      <h2 className="text-lg font-semibold text-blue-800 mb-4">Objects</h2>
 
       {objects.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center py-4">
+        <p className="text-blue-700 text-sm text-center py-4">
           Drag and drop objects from the toolbar to add them to your contract
         </p>
       ) : (
@@ -58,11 +58,11 @@ export default function ObjectList({ objects, onObjectDelete, onObjectUpdate, on
               key={object.id}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-gradient-to-r from-blue-800/30 to-indigo-800/30 rounded-lg p-3 border border-blue-500/20"
+              className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-300"
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-white">
-                  <span className="text-blue-300">{getIcon(object.type)}</span>
+                <div className="flex items-center gap-2 text-blue-800">
+                  <span className="text-blue-600">{getIcon(object.type)}</span>
                   <span className="text-sm truncate max-w-[120px]">{getLabel(object)}</span>
                 </div>
 
@@ -72,7 +72,7 @@ export default function ObjectList({ objects, onObjectDelete, onObjectUpdate, on
                       variant="ghost"
                       size="icon"
                       onClick={() => onCopyToAllPages(object.id)}
-                      className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-950/30"
+                      className="h-7 w-7 text-blue-600 hover:text-blue-500 hover:bg-blue-100"
                       title="Copy to all pages"
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -83,7 +83,7 @@ export default function ObjectList({ objects, onObjectDelete, onObjectUpdate, on
                     variant="ghost"
                     size="icon"
                     onClick={() => onObjectDelete(object.id)}
-                    className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                    className="h-7 w-7 text-red-600 hover:text-red-500 hover:bg-red-100"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>

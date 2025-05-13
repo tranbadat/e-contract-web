@@ -133,8 +133,8 @@ export default function ContractEditor() {
       <div className="container mx-auto px-4 py-8">
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-6">
           <header className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <h1 className="text-3xl font-bold text-white">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+            <h1 className="text-3xl font-bold">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                 Galaxy Contract Editor
               </span>
             </h1>

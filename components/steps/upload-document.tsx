@@ -69,12 +69,12 @@ export default function UploadDocument({ onUpload }: UploadDocumentProps) {
     <div className="flex flex-col items-center">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-3xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-amber-100 mb-4">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-amber-600">
+          <h1 className="text-3xl font-bold text-amber-800 mb-4">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-amber-600 to-amber-800">
               Earth Contract Manager
             </span>
           </h1>
-          <p className="text-amber-200/70">Upload a document to get started</p>
+          <p className="text-amber-700">Upload a document to get started</p>
         </div>
 
         {error && (

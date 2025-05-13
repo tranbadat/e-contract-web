@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, User, ChevronRight, Save, Send } from "lucide-react"
+import { ArrowLeft, User, ChevronRight, Save, Send } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import SignerSelector from "@/components/signing/signer-selector"
@@ -83,13 +83,13 @@ export default function SignDocument({
           variant="ghost"
           size="sm"
           onClick={onBack}
-          className="text-amber-400 hover:text-amber-100 hover:bg-amber-800/30 rounded-lg"
+          className="text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
         <div className="flex-1 text-center">
-          <h2 className="text-xl font-semibold text-amber-100">Sign Document</h2>
+          <h2 className="text-xl font-semibold text-amber-800">Sign Document</h2>
         </div>
         <div className="w-20"></div> {/* Spacer for alignment */}
       </div>
@@ -118,13 +118,15 @@ export default function SignDocument({
         </TabsContent>
 
         <TabsContent value="design" className="mt-0">
-          <SignatureDesigner
-            file={file}
-            pdfUrl={pdfUrl}
-            currentSigner={currentSigner}
-            onAddField={handleAddSignatureField}
-            existingFields={signatureFields}
-          />
+          {activeTab === "design" && (
+            <SignatureDesigner
+              file={file}
+              pdfUrl={pdfUrl}
+              currentSigner={currentSigner}
+              onAddField={handleAddSignatureField}
+              existingFields={signatureFields}
+            />
+          )}
 
           <div className="flex justify-end mt-6 gap-3">
             <Button
