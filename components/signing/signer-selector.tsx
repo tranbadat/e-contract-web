@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { UserPlus, User, X, ChevronRight, CheckCircle, AlertCircle } from "lucide-react"
+import { UserPlus, User, X, ChevronRight, CheckCircle, AlertCircle, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,7 @@ interface SignerSelectorProps {
   currentSigner: Signer | null
   onAddSigner: (signer: Signer) => void
   onSelectSigner: (signer: Signer) => void
+  onRemoveSigner: (signerId: string) => void
   onContinue: () => void
   signatureFields: any[] // Array of signature fields
 }
@@ -22,6 +23,7 @@ export default function SignerSelector({
   currentSigner,
   onAddSigner,
   onSelectSigner,
+  onRemoveSigner,
   onContinue,
   signatureFields,
 }: SignerSelectorProps) {
@@ -33,6 +35,7 @@ export default function SignerSelector({
   const [invalidSigners, setInvalidSigners] = useState<string[]>([])
   const [showValidationMessage, setShowValidationMessage] = useState(false)
   const firstInvalidRef = useRef<HTMLDivElement>(null)
+  const [searchTerm, setSearchTerm] = useState("")
 
   // Check which signers have signature fields
   useEffect(() => {
@@ -84,6 +87,12 @@ export default function SignerSelector({
     return !invalidSigners.includes(signerId)
   }
 
+  const filteredSigners = signers.filter(
+    (signer) =>
+      signer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      signer.email.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
   // Update card styles for lighter background
   return (
     <div className="earth-card">
@@ -107,10 +116,23 @@ export default function SignerSelector({
         </motion.div>
       )}
 
+      {/* Search box */}
       {signers.length > 0 && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-500" />
+          <Input
+            placeholder="Search signers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 earth-input"
+          />
+        </div>
+      )}
+
+      {filteredSigners.length > 0 && (
         <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {signers.map((signer, index) => {
+            {filteredSigners.map((signer, index) => {
               const isValid = isSignerValid(signer.id)
               const isActive = currentSigner?.id === signer.id
               const isFirstInvalid = invalidSigners[0] === signer.id
@@ -135,19 +157,35 @@ export default function SignerSelector({
                       </div>
                     </div>
 
-                    <div
-                      className={`signer-status ${isValid ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}
-                    >
-                      {isValid ? (
-                        <CheckCircle className="h-4 w-4" />
-                      ) : (
-                        <div className="tooltip">
-                          <AlertCircle className="h-4 w-4" />
-                          <span className="tooltip-text bg-gray-800">
-                            Please place at least one signature field for this signer
-                          </span>
-                        </div>
-                      )}
+                    <div className="flex items-center">
+                      <div
+                        className={`signer-status mr-2 ${
+                          isValid ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"
+                        }`}
+                      >
+                        {isValid ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <div className="tooltip">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="tooltip-text bg-gray-800 text-white">
+                              Please place at least one signature field for this signer
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveSigner(signer.id)
+                        }}
+                        className="h-7 w-7 p-0 text-amber-600 hover:text-red-500 hover:bg-red-100 rounded-full"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>

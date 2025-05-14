@@ -14,6 +14,7 @@ export default function WorkflowManager() {
   const [currentStep, setCurrentStep] = useState<WorkflowStep>("upload")
   const [file, setFile] = useState<File | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null)
   const [signers, setSigners] = useState<Signer[]>([])
   const [currentSigner, setCurrentSigner] = useState<Signer | null>(null)
 
@@ -24,8 +25,37 @@ export default function WorkflowManager() {
     }
 
     setFile(uploadedFile)
-    const url = URL.createObjectURL(uploadedFile)
-    setPdfUrl(url)
+
+    // Log file information
+    console.log("File uploaded:", {
+      name: uploadedFile.name,
+      type: uploadedFile.type,
+      size: uploadedFile.size,
+    })
+
+    try {
+      // Create URL for external viewing
+      const url = URL.createObjectURL(uploadedFile)
+      console.log("PDF URL created:", url)
+      setPdfUrl(url)
+
+      // Convert file to base64 for more reliable preview
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        if (e.target && typeof e.target.result === "string") {
+          const base64 = e.target.result
+          console.log("PDF converted to base64, length:", base64.length)
+          setPdfBase64(base64)
+        }
+      }
+      reader.onerror = (error) => {
+        console.error("Error converting PDF to base64:", error)
+      }
+      reader.readAsDataURL(uploadedFile)
+    } catch (error) {
+      console.error("Error processing file:", error)
+    }
+
     setCurrentStep("action")
   }
 
@@ -39,6 +69,17 @@ export default function WorkflowManager() {
 
   const handleSelectSigner = (signer: Signer) => {
     setCurrentSigner(signer)
+  }
+
+  const handleRemoveSigner = (signerId: string) => {
+    // Remove the signer from the signers array
+    setSigners(signers.filter((signer) => signer.id !== signerId))
+
+    // If the current signer is being removed, set currentSigner to null or to another signer
+    if (currentSigner?.id === signerId) {
+      const remainingSigners = signers.filter((signer) => signer.id !== signerId)
+      setCurrentSigner(remainingSigners.length > 0 ? remainingSigners[0] : null)
+    }
   }
 
   const handleBack = () => {
@@ -87,10 +128,12 @@ export default function WorkflowManager() {
             <SignDocument
               file={file}
               pdfUrl={pdfUrl}
+              pdfBase64={pdfBase64}
               signers={signers}
               currentSigner={currentSigner}
               onAddSigner={handleAddSigner}
               onSelectSigner={handleSelectSigner}
+              onRemoveSigner={handleRemoveSigner}
               onBack={handleBack}
             />
           </motion.div>
@@ -104,7 +147,7 @@ export default function WorkflowManager() {
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <EditDocument file={file} pdfUrl={pdfUrl} onBack={handleBack} />
+            <EditDocument file={file} pdfUrl={pdfUrl} pdfBase64={pdfBase64} onBack={handleBack} />
           </motion.div>
         )}
       </AnimatePresence>

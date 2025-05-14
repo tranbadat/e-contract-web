@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, User, ChevronRight, Save, Send } from 'lucide-react'
+import { ArrowLeft, User, ChevronRight, Save, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import SignerSelector from "@/components/signing/signer-selector"
@@ -11,20 +11,24 @@ import type { Signer, SignatureField } from "@/lib/types"
 interface SignDocumentProps {
   file: File | null
   pdfUrl: string | null
+  pdfBase64: string | null
   signers: Signer[]
   currentSigner: Signer | null
   onAddSigner: (signer: Signer) => void
   onSelectSigner: (signer: Signer) => void
+  onRemoveSigner: (signerId: string) => void
   onBack: () => void
 }
 
 export default function SignDocument({
   file,
   pdfUrl,
+  pdfBase64,
   signers,
   currentSigner,
   onAddSigner,
   onSelectSigner,
+  onRemoveSigner,
   onBack,
 }: SignDocumentProps) {
   const [activeTab, setActiveTab] = useState("signers")
@@ -76,6 +80,65 @@ export default function SignDocument({
     })
   }
 
+  const handleRemoveSigner = (signerId: string) => {
+    // Remove the signer's fields
+    setSignatureFields((prevFields) => prevFields.filter((field) => field.signerId !== signerId))
+
+    // If the current signer is being removed, set currentSigner to null
+    if (currentSigner?.id === signerId) {
+      onSelectSigner(signers.find((s) => s.id !== signerId) || null)
+    }
+
+    // You would also need to update the parent component's state
+    // This would typically be handled by the parent component
+    // For example: onRemoveSigner(signerId)
+  }
+
+  // Add a debug component to show PDF information
+  const PdfDebugInfo = ({
+    file,
+    pdfUrl,
+    pdfBase64,
+  }: { file: File | null; pdfUrl: string | null; pdfBase64: string | null }) => {
+    if (!file) return null
+
+    return (
+      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
+        <h4 className="font-medium text-amber-800 mb-1">PDF Debug Information</h4>
+        <ul className="space-y-1 text-amber-700">
+          <li>
+            <span className="font-medium">File name:</span> {file.name}
+          </li>
+          <li>
+            <span className="font-medium">File size:</span> {(file.size / 1024).toFixed(2)} KB
+          </li>
+          <li>
+            <span className="font-medium">File type:</span> {file.type}
+          </li>
+          <li>
+            <span className="font-medium">URL created:</span> {pdfUrl ? "Yes" : "No"}
+          </li>
+          <li>
+            <span className="font-medium">Base64 created:</span> {pdfBase64 ? "Yes" : "No"}
+          </li>
+          <li>
+            <span className="font-medium">Base64 length:</span> {pdfBase64 ? pdfBase64.length : "N/A"}
+          </li>
+          <li>
+            <span className="font-medium">Test URL:</span>{" "}
+            <button
+              onClick={() => pdfUrl && window.open(pdfUrl, "_blank")}
+              className="text-blue-600 underline"
+              disabled={!pdfUrl}
+            >
+              Open in new tab
+            </button>
+          </li>
+        </ul>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col">
       <div className="flex items-center mb-6">
@@ -112,6 +175,7 @@ export default function SignDocument({
             currentSigner={currentSigner}
             onAddSigner={onAddSigner}
             onSelectSigner={onSelectSigner}
+            onRemoveSigner={onRemoveSigner}
             onContinue={handleContinueToDesign}
             signatureFields={signatureFields}
           />
@@ -119,13 +183,17 @@ export default function SignDocument({
 
         <TabsContent value="design" className="mt-0">
           {activeTab === "design" && (
-            <SignatureDesigner
-              file={file}
-              pdfUrl={pdfUrl}
-              currentSigner={currentSigner}
-              onAddField={handleAddSignatureField}
-              existingFields={signatureFields}
-            />
+            <>
+              <PdfDebugInfo file={file} pdfUrl={pdfUrl} pdfBase64={pdfBase64} />
+              <SignatureDesigner
+                file={file}
+                pdfUrl={pdfUrl}
+                pdfBase64={pdfBase64}
+                currentSigner={currentSigner}
+                onAddField={handleAddSignatureField}
+                existingFields={signatureFields}
+              />
+            </>
           )}
 
           <div className="flex justify-end mt-6 gap-3">

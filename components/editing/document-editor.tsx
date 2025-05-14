@@ -3,78 +3,55 @@
 import type React from "react"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { FileText, Type, CheckSquare, ImageIcon, Lock, AlertCircle } from "lucide-react"
+import { FileText, Type, CheckSquare, ImageIcon, Lock, AlertCircle, ZoomIn, ZoomOut, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { motion } from "framer-motion"
+import { Document, Page, pdfjs } from "react-pdf"
 import type { DocumentField, SignatureField } from "@/lib/types"
-import { v4 as uuidv4 } from "uuid"
+
+// Initialize PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
 
 interface DocumentEditorProps {
   file: File | null
   pdfUrl: string | null
+  pdfBase64: string | null
 }
 
-export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
+export default function DocumentEditor({ file, pdfUrl, pdfBase64 }: DocumentEditorProps) {
   const [fields, setFields] = useState<DocumentField[]>([])
   const [signatureFields, setSignatureFields] = useState<SignatureField[]>([])
   const [selectedTool, setSelectedTool] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [numPages, setNumPages] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [viewMode, setViewMode] = useState<"object" | "embed" | "iframe" | "fallback">("object")
+  const [scale, setScale] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [activeResizeId, setActiveResizeId] = useState<string | null>(null)
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 })
+  const [fieldStartPos, setFieldStartPos] = useState({ x: 0, y: 0 })
+  const [fieldStartSize, setFieldStartSize] = useState({ width: 0, height: 0 })
 
   // Generate unique ID
   const generateUniqueId = useCallback(() => {
-    return `field-${uuidv4()}`
+    return `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   }, [])
 
-  // Try different PDF viewing methods
-  useEffect(() => {
-    if (!pdfUrl) return
+  // Handle document load success
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages)
+    setLoading(false)
+  }
 
-    const tryViewModes = async () => {
-      // Start with object tag
-      setViewMode("object")
-
-      // If object tag doesn't work after 2 seconds, try embed
-      const timer1 = setTimeout(() => {
-        setViewMode("embed")
-      }, 2000)
-
-      // If embed doesn't work after another 2 seconds, try iframe
-      const timer2 = setTimeout(() => {
-        setViewMode("iframe")
-      }, 4000)
-
-      // If iframe doesn't work after another 2 seconds, use fallback
-      const timer3 = setTimeout(() => {
-        setViewMode("fallback")
-      }, 6000)
-
-      return () => {
-        clearTimeout(timer1)
-        clearTimeout(timer2)
-        clearTimeout(timer3)
-      }
-    }
-
-    tryViewModes()
-
-    // For demo purposes, add some mock signature fields
-    setSignatureFields([
-      {
-        id: "sig-1",
-        type: "signature",
-        position: { x: 150, y: 300 },
-        size: { width: 200, height: 80 },
-        page: 1,
-        signerId: "signer-1",
-        isLocked: true,
-      },
-    ])
-  }, [pdfUrl])
+  // Handle document load error
+  const onDocumentLoadError = (error: Error) => {
+    console.error("Error loading PDF:", error)
+    setError(`Failed to load PDF: ${error.message}`)
+    setLoading(false)
+  }
 
   // Update the handleAddField function to ensure unique IDs
   const handleAddField = useCallback(
@@ -97,109 +74,120 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
     [currentPage, generateUniqueId],
   )
 
+  // Handle field move with laggy effect
   const handleFieldMove = useCallback((id: string, position: { x: number; y: number }) => {
-    setFields((prevFields) => prevFields.map((field) => (field.id === id ? { ...field, position } : field)))
+    // Add a slight delay for laggy effect
+    setTimeout(() => {
+      setFields((prevFields) => prevFields.map((field) => (field.id === id ? { ...field, position } : field)))
+    }, 50) // 50ms delay for laggy effect
   }, [])
 
+  // Handle field resize with laggy effect
   const handleFieldResize = useCallback((id: string, size: { width: number; height: number }) => {
-    setFields((prevFields) => prevFields.map((field) => (field.id === id ? { ...field, size } : field)))
+    // Add a slight delay for laggy effect
+    setTimeout(() => {
+      setFields((prevFields) => prevFields.map((field) => (field.id === id ? { ...field, size } : field)))
+    }, 50) // 50ms delay for laggy effect
   }, [])
 
+  // Handle mouse down for dragging or resizing
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, fieldId: string, isResize = false) => {
       e.preventDefault()
-
-      const startX = e.clientX
-      const startY = e.clientY
+      e.stopPropagation()
 
       const field = fields.find((f) => f.id === fieldId)
       if (!field) return
 
-      const startPosition = { ...field.position }
-      const startSize = { ...field.size }
+      setDragStartPos({ x: e.clientX, y: e.clientY })
+      setFieldStartPos({ ...field.position })
+      setFieldStartSize({ ...field.size })
 
-      const handleMouseMove = (moveEvent: MouseEvent) => {
-        if (isResize) {
-          // Handle resize
-          const deltaX = moveEvent.clientX - startX
-          const deltaY = moveEvent.clientY - startY
-
-          handleFieldResize(fieldId, {
-            width: Math.max(50, startSize.width + deltaX),
-            height: Math.max(30, startSize.height + deltaY),
-          })
-        } else {
-          // Handle move
-          const deltaX = moveEvent.clientX - startX
-          const deltaY = moveEvent.clientY - startY
-
-          handleFieldMove(fieldId, {
-            x: startPosition.x + deltaX,
-            y: startPosition.y + deltaY,
-          })
-        }
+      if (isResize) {
+        setActiveResizeId(fieldId)
+      } else {
+        setActiveDragId(fieldId)
       }
+    },
+    [fields],
+  )
 
-      const handleMouseUp = () => {
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
+  // Handle mouse move for dragging or resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (activeDragId) {
+        const deltaX = (e.clientX - dragStartPos.x) / scale
+        const deltaY = (e.clientY - dragStartPos.y) / scale
+
+        handleFieldMove(activeDragId, {
+          x: fieldStartPos.x + deltaX,
+          y: fieldStartPos.y + deltaY,
+        })
+      } else if (activeResizeId) {
+        const deltaX = (e.clientX - dragStartPos.x) / scale
+        const deltaY = (e.clientY - dragStartPos.y) / scale
+
+        handleFieldResize(activeResizeId, {
+          width: Math.max(50, fieldStartSize.width + deltaX),
+          height: Math.max(30, fieldStartSize.height + deltaY),
+        })
       }
+    }
 
+    const handleMouseUp = () => {
+      setActiveDragId(null)
+      setActiveResizeId(null)
+    }
+
+    if (activeDragId || activeResizeId) {
       document.addEventListener("mousemove", handleMouseMove)
       document.addEventListener("mouseup", handleMouseUp)
-    },
-    [fields, handleFieldMove, handleFieldResize],
-  )
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [
+    activeDragId,
+    activeResizeId,
+    dragStartPos,
+    fieldStartPos,
+    fieldStartSize,
+    handleFieldMove,
+    handleFieldResize,
+    scale,
+  ])
 
   const handleOpenPdfInNewTab = () => {
     if (pdfUrl) {
       window.open(pdfUrl, "_blank")
+    } else if (pdfBase64) {
+      const newWindow = window.open()
+      if (newWindow) {
+        newWindow.document.write(`
+          <iframe width="100%" height="100%" src="${pdfBase64}"></iframe>
+        `)
+      }
     }
   }
 
-  const renderPdfViewer = () => {
-    if (!pdfUrl) return null
+  const zoomIn = () => {
+    setScale((prev) => Math.min(prev + 0.1, 2))
+  }
 
-    switch (viewMode) {
-      case "object":
-        return (
-          <object data={pdfUrl} type="application/pdf" className="w-full h-full" onError={() => setViewMode("embed")}>
-            <p>Your browser cannot display the PDF. Trying alternative method...</p>
-          </object>
-        )
-      case "embed":
-        return (
-          <embed src={pdfUrl} type="application/pdf" className="w-full h-full" onError={() => setViewMode("iframe")} />
-        )
-      case "iframe":
-        return <iframe src={pdfUrl} className="w-full h-full" onError={() => setViewMode("fallback")} />
-      case "fallback":
-        return (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100">
-            <FileText className="h-16 w-16 text-amber-700 mb-4" />
-            <p className="text-gray-600 mb-2">PDF preview not available in your browser</p>
-            <p className="text-gray-500 text-sm mb-4">Using simplified mode</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenPdfInNewTab}
-              className="bg-amber-700 border-amber-600 text-white hover:bg-amber-800 rounded-lg"
-            >
-              Open PDF in New Tab
-            </Button>
-          </div>
-        )
-      default:
-        return null
-    }
+  const zoomOut = () => {
+    setScale((prev) => Math.max(prev - 0.1, 0.5))
   }
 
   const handleDocumentClick = useCallback(
     (e: React.MouseEvent) => {
       if (selectedTool && containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect()
-        const x = e.clientX - rect.left
-        const y = e.clientY - rect.top
+        const x = (e.clientX - rect.left) / scale
+        const y = (e.clientY - rect.top) / scale
+
+        console.log("Click detected at:", { x, y })
 
         // Check if we're trying to place a field over a signature field
         const isOverSignatureField = signatureFields
@@ -222,12 +210,37 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
         handleAddField(selectedTool)
       }
     },
-    [selectedTool, currentPage, signatureFields, handleAddField],
+    [selectedTool, currentPage, signatureFields, handleAddField, scale],
+  )
+
+  // Render loading state
+  const renderLoading = () => (
+    <div className="flex flex-col items-center justify-center h-full bg-gray-100/50">
+      <Loader2 className="h-12 w-12 text-emerald-600 animate-spin mb-4" />
+      <p className="text-emerald-800">Loading document...</p>
+    </div>
+  )
+
+  // Render error state
+  const renderError = () => (
+    <div className="flex flex-col items-center justify-center h-full bg-red-100/30">
+      <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+      <h3 className="text-lg font-medium text-red-800 mb-2">Failed to load PDF</h3>
+      <p className="text-red-700 text-center max-w-md mb-4">{error}</p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleOpenPdfInNewTab}
+        className="bg-emerald-700 border-emerald-600 text-white hover:bg-emerald-800 rounded-lg"
+      >
+        Open PDF in New Tab
+      </Button>
+    </div>
   )
 
   return (
     <div className="flex flex-col">
-      {error && (
+      {error && !loading && (
         <Alert variant="destructive" className="mb-6 bg-red-700/20 border-red-700/30 text-white rounded-lg">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
@@ -238,7 +251,7 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Tools panel */}
         <div className="lg:w-64 earth-card">
-          <h3 className="text-lg font-medium text-amber-100 mb-4">Editing Tools</h3>
+          <h3 className="text-lg font-medium text-amber-800 mb-4">Editing Tools</h3>
 
           <div className="space-y-3">
             <Button
@@ -296,10 +309,10 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
           )}
 
           <div className="mt-6">
-            <h4 className="text-sm font-medium text-amber-100 mb-2">Fields on Page {currentPage}</h4>
+            <h4 className="text-sm font-medium text-amber-800 mb-2">Fields on Page {currentPage}</h4>
             {fields.filter((f) => f.page === currentPage).length === 0 &&
             signatureFields.filter((f) => f.page === currentPage).length === 0 ? (
-              <p className="text-xs text-amber-200/70">No fields added yet</p>
+              <p className="text-xs text-amber-700">No fields added yet</p>
             ) : (
               <div className="space-y-2">
                 {signatureFields
@@ -331,7 +344,28 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
         {/* Document preview */}
         <div className="flex-1 earth-card">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-amber-100">Document Preview</h3>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={zoomOut}
+                className="bg-emerald-800/20 border-emerald-700/30 text-emerald-100 hover:bg-emerald-800/30 rounded-lg"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <span className="text-emerald-800">{Math.round(scale * 100)}%</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={zoomIn}
+                className="bg-emerald-800/20 border-emerald-700/30 text-emerald-100 hover:bg-emerald-800/30 rounded-lg"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <h3 className="text-lg font-medium text-amber-800">Document Preview</h3>
+
             <Button
               variant="outline"
               size="sm"
@@ -345,16 +379,32 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
 
           <div
             ref={containerRef}
-            className="relative w-full border border-amber-700/30 rounded-lg shadow-lg overflow-hidden bg-white"
+            className="relative w-full border border-amber-700/30 rounded-lg shadow-lg overflow-auto bg-white"
             style={{ height: "70vh" }}
-            onClick={handleDocumentClick}
+            onClick={selectedTool ? handleDocumentClick : undefined}
           >
-            {/* PDF Viewer */}
-            {renderPdfViewer()}
+            {/* PDF Viewer using react-pdf */}
+            <div className="relative" style={{ transform: `scale(${scale})`, transformOrigin: "top left" }}>
+              {(pdfUrl || pdfBase64) && (
+                <Document
+                  file={pdfUrl || pdfBase64}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={onDocumentLoadError}
+                  loading={renderLoading}
+                  error={renderError}
+                >
+                  <Page
+                    pageNumber={currentPage}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                    className="shadow-md"
+                    width={containerRef.current?.clientWidth ? containerRef.current.clientWidth / scale : undefined}
+                  />
+                </Document>
+              )}
 
-            {/* Fields overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="relative w-full h-full">
+              {/* Fields overlay */}
+              <div className="absolute inset-0 pointer-events-none">
                 {/* Signature fields (locked) */}
                 {signatureFields
                   .filter((field) => field.page === currentPage)
@@ -367,7 +417,6 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
                         top: `${field.position.y}px`,
                         width: `${field.size.width}px`,
                         height: `${field.size.height}px`,
-                        zIndex: 5,
                       }}
                     >
                       <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-400 text-sm relative">
@@ -386,15 +435,25 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
                     <motion.div
                       key={field.id}
                       initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="absolute bg-white/90 border-2 border-emerald-700 rounded-lg shadow-md p-2 pointer-events-auto cursor-move"
-                      style={{
-                        left: `${field.position.x}px`,
-                        top: `${field.position.y}px`,
-                        width: `${field.size.width}px`,
-                        height: `${field.size.height}px`,
-                        zIndex: 10,
+                      animate={{
+                        opacity: 1,
+                        scale: 1,
+                        x: field.position.x,
+                        y: field.position.y,
+                        width: field.size.width,
+                        height: field.size.height,
                       }}
+                      transition={{
+                        type: "spring",
+                        damping: 15, // Lower damping for more oscillation (laggy effect)
+                        stiffness: 100, // Lower stiffness for slower movement
+                        mass: 1.5, // Higher mass for more inertia
+                      }}
+                      className={`absolute bg-white/90 border-2 ${
+                        activeDragId === field.id || activeResizeId === field.id
+                          ? "border-emerald-500 shadow-lg"
+                          : "border-emerald-700"
+                      } rounded-lg shadow-md p-2 pointer-events-auto cursor-move`}
                       onMouseDown={(e) => handleMouseDown(e, field.id)}
                     >
                       {field.type === "text" && (
@@ -438,11 +497,14 @@ export default function DocumentEditor({ file, pdfUrl }: DocumentEditorProps) {
             >
               Previous Page
             </Button>
-            <div className="text-amber-100">Page {currentPage}</div>
+            <div className="text-amber-800">
+              Page {currentPage} of {numPages || 1}
+            </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(currentPage + 1)}
+              onClick={() => setCurrentPage(Math.min(numPages, currentPage + 1))}
+              disabled={currentPage >= numPages}
               className="bg-emerald-800/20 border-emerald-700/30 text-emerald-100 hover:bg-emerald-800/30 rounded-lg"
             >
               Next Page

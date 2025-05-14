@@ -6,10 +6,11 @@ import DocumentEditor from "@/components/editing/document-editor"
 interface EditDocumentProps {
   file: File | null
   pdfUrl: string | null
+  pdfBase64: string | null
   onBack: () => void
 }
 
-export default function EditDocument({ file, pdfUrl, onBack }: EditDocumentProps) {
+export default function EditDocument({ file, pdfUrl, pdfBase64, onBack }: EditDocumentProps) {
   const handleSaveTemplate = () => {
     alert("Template saved successfully!")
   }
@@ -36,7 +37,7 @@ export default function EditDocument({ file, pdfUrl, onBack }: EditDocumentProps
         <div className="w-20"></div> {/* Spacer for alignment */}
       </div>
 
-      <DocumentEditor file={file} pdfUrl={pdfUrl} />
+      <DocumentEditor file={file} pdfUrl={pdfUrl} pdfBase64={pdfBase64} />
 
       <div className="flex justify-end mt-6 gap-3">
         <Button

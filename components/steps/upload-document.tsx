@@ -26,19 +26,54 @@ export default function UploadDocument({ onUpload }: UploadDocumentProps) {
   const validateAndUpload = (file: File) => {
     setError(null)
 
+    // Log the file details
+    console.log("Validating file:", {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    })
+
     // Check if file is a PDF
     if (file.type !== "application/pdf" && !file.type.startsWith("image/")) {
+      console.error("Invalid file type:", file.type)
       setError("Please upload a PDF or image file.")
       return
     }
 
     // Check file size (limit to 10MB)
     if (file.size > 10 * 1024 * 1024) {
+      console.error("File too large:", file.size)
       setError("File is too large. Please upload a file smaller than 10MB.")
       return
     }
 
-    onUpload(file)
+    // Additional validation for PDF files
+    if (file.type === "application/pdf") {
+      // Create a temporary URL to check if the file is readable
+      const tempUrl = URL.createObjectURL(file)
+
+      // Try to fetch the file to verify it's accessible
+      fetch(tempUrl)
+        .then((response) => {
+          if (!response.ok) {
+            console.error("PDF fetch failed:", response.status)
+            setError("The PDF file appears to be corrupted or inaccessible.")
+          } else {
+            console.log("PDF fetch successful")
+            onUpload(file)
+          }
+        })
+        .catch((err) => {
+          console.error("PDF fetch error:", err)
+          setError("Could not access the PDF file. It may be corrupted.")
+        })
+        .finally(() => {
+          URL.revokeObjectURL(tempUrl)
+        })
+    } else {
+      // For non-PDF files, proceed normally
+      onUpload(file)
+    }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
